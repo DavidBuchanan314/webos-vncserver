@@ -82,10 +82,10 @@ int main(int argc, char *argv[])
 	
 	printf("\nCleaning up...\n");
 	
+	rfbShutdownServer(screen, TRUE);
+	rfbScreenCleanup(screen);
 	munmap(screen->frameBuffer, FBSIZE);
 	close(devmem);
-	screen->frameBuffer = NULL;
-	rfbScreenCleanup(screen);
 	shutdown_uinput();
 	
 	return 0;
