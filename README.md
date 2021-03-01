@@ -12,6 +12,15 @@ Where `0x3acae000` is the address of your framebuffer in physical memory.
 
 You should then be able to connect via a VNC client of your choice, on port 5900.
 
+Here it is, running on a "headless" TV motherboard, being accessed via a VNC mobile app.
+
+![Demo](./img/demo.jpg?raw=true)
+
+# Caveats
+
+ - This does not capture any hardware-accelerated video surfaces, only the UI layers.
+
+ - The framebuffer reads are not synchronised in any way. Furthermore, the actual framebuffer is double-buffered, and we only ever read from the first. This keeps the code simple, but it does result in screen tearing and other minor artefacts.
 
 # Finding your framebuffer address
 
