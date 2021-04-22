@@ -36,8 +36,9 @@ To cross-compile for WebOS, you will need an NDK: https://github.com/webosbrew/m
 
 First, cross-compile [LibVNCServer](https://github.com/LibVNC/libvncserver) as a static library.
 
-You may need to edit `src/CMakeLists.txt` to update the path to point to wherever your
-compiled `libvncserver.a` library is (I am a CMake noob, idk the correct way of doing this).
+```
+cmake .. -DBUILD_SHARED_LIBS=OFF -DWITH_GNUTLS=OFF -DWITH_GCRYPT=OFF -DWITH_SYSTEMD=OFF -DCMAKE_INSTALL_PREFIX=$PROJECT_ROOTDIR/prebuilt
+```
 
 Then, it should just be a matter of:
 
