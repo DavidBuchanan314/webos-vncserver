@@ -13,7 +13,7 @@
 
 
 #include "uinput.h"
-#include "im.h"
+#include <im.h>
 
 static int fd = 0;
 
