@@ -17,6 +17,10 @@ GM_SURFACE surfaceinfo;
 unsigned int screenwidth = 1920;
 unsigned int screenheight = 1080;
 const unsigned int bpp = 4;
+
+unsigned int nativewidth = 0;
+unsigned int nativeheight = 0;
+
 #define FBSIZE (screenwidth * screenheight * bpp)
 
 int running = 1;
@@ -34,7 +38,7 @@ static void keyevent(rfbBool down, rfbKeySym key, rfbClientPtr cl)
 static void ptrevent(int buttonMask, int x, int y, rfbClientPtr cl)
 {
 	printf("ptrevent 0x%08x %d %d\n", buttonMask, x, y);
-	ptr_abs(x, y, buttonMask & 1);
+	ptr_abs(x * nativewidth / screenwidth, y * nativeheight / screenheight, buttonMask & 1);
 }
 
 int main(int argc, char *argv[])
@@ -48,23 +52,36 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (GM_GetGraphicResolution(&nativewidth, &nativeheight) != 0) {
+		fprintf(stderr, "Unable to get native screen resolution\n");
+		return -1;
+	}
+
+	printf("Native resolution: %dx%d\n", nativewidth, nativeheight);
+
+	if (screenwidth > nativewidth || screenheight > nativeheight) {
+		fprintf(stderr, "Requested resolution (%dx%d) too high!\n", screenwidth, screenheight);
+		return -1;
+	}
+
 	rfbScreenInfoPtr screen = rfbGetScreen(&argc, argv, screenwidth, screenheight, 8, 3, bpp);
 	assert(screen != NULL);
 
 	assert(initialize_uinput() >= 0);
-    assert(GM_CreateSurface(screenwidth, screenheight, 0, &surfaceinfo) == 0);
+	assert(GM_CreateSurface(screenwidth, screenheight, 0, &surfaceinfo) == 0);
 
 	signal(SIGINT, intHandler);
-
-	screen->frameBuffer = surfaceinfo.framebuffer;
 
 	// switch red and blue channels
 	int tmp = screen->serverFormat.redShift;
 	screen->serverFormat.redShift = screen->serverFormat.blueShift;
 	screen->serverFormat.blueShift = tmp;
 
+	uint8_t framebuffer[FBSIZE];
+
 	screen->kbdAddEvent = keyevent;
 	screen->ptrAddEvent = ptrevent;
+	screen->frameBuffer = framebuffer;
 
 	rfbInitServer(screen);
 
@@ -72,14 +89,14 @@ int main(int argc, char *argv[])
 	rfbRunEventLoop(screen, -1, TRUE);
 
 	while (running) {
-		usleep(1000000/30); // update at 30Hz
-        assert(GM_CaptureGraphicScreen(surfaceinfo.surfaceID, &screenwidth, &screenheight) == 0);
+		assert(GM_CaptureGraphicScreen(surfaceinfo.surfaceID, &screenwidth, &screenheight) == 0);
+		memcpy(framebuffer, surfaceinfo.framebuffer, FBSIZE);
 		rfbMarkRectAsModified(screen, 0, 0, screenwidth, screenheight);
 	}
 
 	printf("\nCleaning up...\n");
 
-    GM_DestroySurface(surfaceinfo.surfaceID);
+	GM_DestroySurface(surfaceinfo.surfaceID);
 	rfbShutdownServer(screen, TRUE);
 	rfbScreenCleanup(screen);
 	shutdown_uinput();
