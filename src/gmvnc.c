@@ -92,6 +92,7 @@ int main(int argc, char *argv[])
 		assert(GM_CaptureGraphicScreen(surfaceinfo.surfaceID, &screenwidth, &screenheight) == 0);
 		memcpy(framebuffer, surfaceinfo.framebuffer, FBSIZE);
 		rfbMarkRectAsModified(screen, 0, 0, screenwidth, screenheight);
+		usleep(1000000/30); // update at 30Hz
 	}
 
 	printf("\nCleaning up...\n");
