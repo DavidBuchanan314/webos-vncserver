@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "rfb/rfb.h"
+#include <rfb/rfb.h>
 #include <assert.h>
 #include <sys/mman.h>
 #include <sys/types.h>
