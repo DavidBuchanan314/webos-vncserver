@@ -1,9 +1,17 @@
 include(ExternalProject)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(JPEG REQUIRED IMPORTED_TARGET libjpeg)
+pkg_check_modules(ZLIB REQUIRED IMPORTED_TARGET zlib)
+
+# FIXME this seems fairly wrong - probably due to old cmake or some other
+# Yocto/NDK-related bugs these need to be manually passed in :/
 ExternalProject_Add(
   LibVNCServer
-  URL https://github.com/LibVNC/libvncserver/archive/refs/tags/LibVNCServer-0.9.13.tar.gz
-  CMAKE_ARGS  "-DBUILD_SHARED_LIBS=OFF" "-DWITH_SYSTEMD=OFF" "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_SOURCE_DIR}"
+  URL https://github.com/LibVNC/libvncserver/archive/0b8990784a81823eecc9089263ac1966d17bf399.tar.gz
+  CMAKE_ARGS  "-DWITH_TESTS=OFF" "-DWITH_EXAMPLES=OFF" "-DBUILD_SHARED_LIBS=OFF" "-DWITH_SYSTEMD=OFF"
+  "-DJPEG_LIBRARY=${JPEG_LIBRARIES}" "-DJPEG_INCLUDE_DIR=$ENV{PKG_CONFIG_SYSROOT_DIR}/${JPEG_INCLUDEDIR}"
+  "-DZLIB_LIBRARY=${ZLIB_LIBRARIES}" "-DZLIB_INCLUDE_DIR=$ENV{PKG_CONFIG_SYSROOT_DIR}/${ZLIB_INCLUDEDIR}"
 )
 
 add_library(vncserver STATIC IMPORTED GLOBAL)
