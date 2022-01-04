@@ -24,20 +24,30 @@ unsigned int nativeheight = 0;
 #define FBSIZE (screenwidth * screenheight * bpp)
 
 int running = 1;
+int activeClients = 0;
 
 void intHandler(int dummy) {
 	running = 0;
 }
 
+static void clientGoneEvent(rfbClientPtr cl) {
+	printf("client closed!\n");
+	activeClients -= 1;
+}
+
+static void newClientEvent(rfbClientPtr cl) {
+	printf("new client!\n");
+	activeClients += 1;
+	cl->clientGoneHook = &clientGoneEvent;
+}
+
 static void keyevent(rfbBool down, rfbKeySym key, rfbClientPtr cl)
 {
-	printf("keyevent 0x%08x 0x%08x\n", down, key);
 	uinput_key_command(down, key);
 }
 
 static void ptrevent(int buttonMask, int x, int y, rfbClientPtr cl)
 {
-	printf("ptrevent 0x%08x %d %d\n", buttonMask, x, y);
 	ptr_abs(x * nativewidth / screenwidth, y * nativeheight / screenheight, buttonMask & 1);
 }
 
@@ -67,6 +77,8 @@ int main(int argc, char *argv[])
 	rfbScreenInfoPtr screen = rfbGetScreen(&argc, argv, screenwidth, screenheight, 8, 3, bpp);
 	assert(screen != NULL);
 
+	screen->newClientHook = newClientEvent;
+
 	assert(initialize_uinput() >= 0);
 	assert(GM_CreateSurface(screenwidth, screenheight, 0, &surfaceinfo) == 0);
 
@@ -89,9 +101,12 @@ int main(int argc, char *argv[])
 	rfbRunEventLoop(screen, -1, TRUE);
 
 	while (running) {
-		assert(GM_CaptureGraphicScreen(surfaceinfo.surfaceID, &screenwidth, &screenheight) == 0);
-		memcpy(framebuffer, surfaceinfo.framebuffer, FBSIZE);
-		rfbMarkRectAsModified(screen, 0, 0, screenwidth, screenheight);
+		if (activeClients > 0) {
+			assert(GM_CaptureGraphicScreen(surfaceinfo.surfaceID, &screenwidth, &screenheight) == 0);
+			memcpy(framebuffer, surfaceinfo.framebuffer, FBSIZE);
+			rfbMarkRectAsModified(screen, 0, 0, screenwidth, screenheight);
+		}
+
 		usleep(1000000/30); // update at 30Hz
 	}
 
