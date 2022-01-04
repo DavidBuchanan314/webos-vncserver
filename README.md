@@ -1,14 +1,13 @@
 # webos-vncserver
-An extremely hacky VNC server for WebOS - Works by reading directly from the GPU's framebuffer.
+An somewhat hacky VNC server for WebOS.
 
 Requires root privileges.
 
 # Usage
 
 ```
-# ./vramvnc 0x3acae000
+# ./gmvnc
 ```
-Where `0x3acae000` is the address of your framebuffer in physical memory.
 
 You should then be able to connect via a VNC client of your choice, on port 5900.
 

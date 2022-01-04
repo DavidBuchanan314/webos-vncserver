@@ -9,17 +9,16 @@
 #include <errno.h>
 #include <stdio.h>
 #include <signal.h>
-#include <gm.h>
 
+#include "capture.h"
 #include "uinput.h"
 
-GM_SURFACE surfaceinfo;
 unsigned int screenwidth = 1920;
 unsigned int screenheight = 1080;
 const unsigned int bpp = 4;
 
-unsigned int nativewidth = 0;
-unsigned int nativeheight = 0;
+unsigned int nativewidth = 1920;
+unsigned int nativeheight = 1080;
 
 #define FBSIZE (screenwidth * screenheight * bpp)
 
@@ -35,24 +34,24 @@ static void clientGoneEvent(rfbClientPtr cl) {
 	activeClients -= 1;
 }
 
-static void newClientEvent(rfbClientPtr cl) {
+static enum rfbNewClientAction newClientEvent(rfbClientPtr cl) {
 	printf("new client!\n");
 	activeClients += 1;
 	cl->clientGoneHook = &clientGoneEvent;
+	return RFB_CLIENT_ACCEPT;
 }
 
-static void keyevent(rfbBool down, rfbKeySym key, rfbClientPtr cl)
-{
+static void keyevent(rfbBool down, rfbKeySym key, rfbClientPtr cl) {
 	uinput_key_command(down, key);
 }
 
-static void ptrevent(int buttonMask, int x, int y, rfbClientPtr cl)
-{
-	ptr_abs(x * nativewidth / screenwidth, y * nativeheight / screenheight, buttonMask & 1);
+static void ptrevent(int buttonMask, int x, int y, rfbClientPtr cl) {
+	ptr_abs(x * nativewidth / screenwidth, y * nativeheight / screenheight, buttonMask);
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
+	int ret;
+
 	if (argc > 1) {
 		screenwidth = strtoul(argv[1], NULL, 0);
 		screenheight = strtoul(argv[2], NULL, 0);
@@ -62,9 +61,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (GM_GetGraphicResolution(&nativewidth, &nativeheight) != 0) {
-		fprintf(stderr, "Unable to get native screen resolution\n");
-		return -1;
+	if ((ret = capture_init(screenwidth, screenheight)) != 0) {
+		return -2;
 	}
 
 	printf("Native resolution: %dx%d\n", nativewidth, nativeheight);
@@ -80,7 +78,6 @@ int main(int argc, char *argv[])
 	screen->newClientHook = newClientEvent;
 
 	assert(initialize_uinput() >= 0);
-	assert(GM_CreateSurface(screenwidth, screenheight, 0, &surfaceinfo) == 0);
 
 	signal(SIGINT, intHandler);
 
@@ -95,6 +92,10 @@ int main(int argc, char *argv[])
 	screen->ptrAddEvent = ptrevent;
 	screen->frameBuffer = framebuffer;
 
+	static const char* passwords[2]={"secret",0};
+	screen->authPasswdData = (void*)passwords;
+	screen->passwordCheck = rfbCheckPasswordByList;
+
 	rfbInitServer(screen);
 
 	// Run event loop in background thread
@@ -102,8 +103,11 @@ int main(int argc, char *argv[])
 
 	while (running) {
 		if (activeClients > 0) {
-			assert(GM_CaptureGraphicScreen(surfaceinfo.surfaceID, &screenwidth, &screenheight) == 0);
-			memcpy(framebuffer, surfaceinfo.framebuffer, FBSIZE);
+			if ((ret = capture_execute(framebuffer, FBSIZE)) != 0) {
+				fprintf(stderr, "capture failed: %08x\n", ret);
+				return -5;
+			}
+
 			rfbMarkRectAsModified(screen, 0, 0, screenwidth, screenheight);
 		}
 
@@ -112,7 +116,7 @@ int main(int argc, char *argv[])
 
 	printf("\nCleaning up...\n");
 
-	GM_DestroySurface(surfaceinfo.surfaceID);
+	capture_destroy();
 	rfbShutdownServer(screen, TRUE);
 	rfbScreenCleanup(screen);
 	shutdown_uinput();
