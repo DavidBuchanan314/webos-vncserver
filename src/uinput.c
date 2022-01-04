@@ -46,6 +46,7 @@ int initialize_uinput(void)
 	ioctl(fd, UI_SET_EVBIT, EV_REL);
 	ioctl(fd, UI_SET_RELBIT, REL_X);
 	ioctl(fd, UI_SET_RELBIT, REL_Y);
+	ioctl(fd, UI_SET_RELBIT, REL_WHEEL);
 
 	ioctl(fd, UI_SET_EVBIT, EV_KEY);
 
@@ -133,18 +134,21 @@ void ptr_abs(int x, int y, int p) {
 		ev.code = ABS_PRESSURE;
 		ev.value = p;
 		write(fd, &ev, sizeof(ev));
-		
-		//if (!btn_touch) {
+
+		if (p & 0x08 || p & 0x10) {
+			fprintf(stderr, "wheeling! %08x\n", p);
+			// Scroll wheel
+			ev.type = EV_REL;
+			ev.code = REL_WHEEL;
+			ev.value = p & 0x08 ? 1 : -1;
+			write(fd, &ev, sizeof(ev));
+		} else {
+			// Mouse button
 			ev.type = EV_KEY;
 			ev.code = BTN_LEFT;
-			ev.value = p ? 1 : 0;
+			ev.value = p & 1;
 			write(fd, &ev, sizeof(ev));
-			
-		//	ev.type = EV_KEY;
-		//	ev.code = BTN_MOUSE;
-		//	ev.value = 0;
-		//	write(fd, &ev, sizeof(ev));
-		//}
+		}
 	}
 
 	ev.type = EV_SYN;
